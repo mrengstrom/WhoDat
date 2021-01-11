@@ -10,7 +10,7 @@ if [[ -z "${WORKERS}" ]]; then
 fi
 
 if [[ -z "${HOST}" ]]; then
-    HOST="0.0.0.0:8888"
+    HOST="0.0.0.0:8889"
 fi
 
 gunicorn -w ${WORKERS} -b ${HOST} "pydat.api:create_app()"

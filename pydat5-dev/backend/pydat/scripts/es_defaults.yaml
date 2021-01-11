@@ -1,0 +1,12 @@
+uri: localhost:9200
+access:
+  user: null
+  password: null
+  ask-pass: false # move out to commandline
+  enable-ssl: false
+  ssl-cert: path
+disable-sniffing: True
+index-prefix: pydat
+bulk-size: 1000
+builk-fetch-size: 50
+rollover-size: 50000000

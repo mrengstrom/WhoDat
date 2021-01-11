@@ -17,8 +17,8 @@ import logging
 from logging import StreamHandler
 from logging.handlers import TimedRotatingFileHandler
 
-from HTMLParser import HTMLParser
-import Queue as queue
+from html.parser import HTMLParser
+import queue
 
 import elasticsearch
 from elasticsearch import helpers
@@ -31,7 +31,18 @@ DOC_TYPE = "doc"
 META_DOC_TYPE = "doc"
 
 
-class StatTracker(Thread):
+class StatTracker:
+    def __init__(self, queue):
+        self._queue = queue
+
+    def addChanged(self, field):
+        self._queue.put(('chn', field))
+
+    def incr(self, field):
+        self._queue.put(('stat', field))
+
+
+class MainStatTracker(Thread):
     """Multi-processing safe stat tracking class
 
     This class can be provided to all pipelines to keep track of different
@@ -177,7 +188,7 @@ class _mpLoggerClient(object):
 
     @prefix.setter
     def prefix(self, value):
-        if not isinstance(value, basestring):
+        if not isinstance(value, str):
             raise TypeError("Expected a string type")
         self._prefix = value
 
@@ -198,7 +209,7 @@ class _mpLoggerClient(object):
         if kwargs.get('_exception_', None) is not None:
             msg += "\n%s" % (kwargs['_exception_'])
 
-        (name, line, func) = self._logger.findCaller()
+        (name, line, func, _) = self._logger.findCaller()
         log_data = (self.name, lvl, name, line, msg, args, None,
                     func, kwargs.get('extra', None))
         self.logQueue.put(log_data)
@@ -266,7 +277,7 @@ class mpLogger(Thread):
 
         try:
             logHandler = StreamHandler(sys.stdout)
-        except Exception, e:
+        except Exception as e:
             raise Exception(("Unable to setup logger to stdout\n"
                              "Error Message: %s\n") % str(e))
 
@@ -338,6 +349,7 @@ class FileReader(Thread):
                 LOGGER.error("File or Directory required")
         except Exception as e:
             LOGGER.error("Unknown exception in File Reader")
+            LOGGER.error(repr(e))
         finally:
             self.datafile_queue.join()
             LOGGER.debug("Setting FileReaderDone event")
@@ -875,7 +887,7 @@ class DataShipper(Thread):
                     helpers.streaming_bulk(self.es, bulkIter(),
                                            raise_on_error=False,
                                            chunk_size=self.options.bulk_size):
-                resp = response[response.keys()[0]]
+                resp = response[list(response)[0]]
                 if not ok and resp['status'] not in [404, 409]:
                         if not self.eventTracker.bulkError:
                             self.eventTracker.setBulkError()
@@ -1063,7 +1075,7 @@ class DataProcessor(Process):
     def run(self):
         os.setpgrp()
         global LOGGER
-        LOGGER = self.logger.getLogger()
+        LOGGER = self.logger
         LOGGER.prefix = "(Pipeline %d) " % (self.myid)
 
         # Queue for individual csv entries
@@ -1487,7 +1499,7 @@ def main():
     previousVersion = 0
 
     # Create the stats tracker thread
-    statTracker = StatTracker()
+    statTracker = MainStatTracker()
     statTracker.daemon = True
     statTracker.start()
 
@@ -1692,7 +1704,7 @@ def main():
     reader_thread.start()
 
     for pipeline_id in range(options.procs):
-        p = DataProcessor(pipeline_id, datafile_queue, statTracker, logger,
+        p = DataProcessor(pipeline_id, datafile_queue, StatTracker(statTracker._stat_queue), logger.getLogger(name=f'{pipeline_id}'),
                           eventTracker, options)
         p.start()
         pipelines.append(p)
@@ -1725,7 +1737,7 @@ def main():
             # Wait for the pipelines to clear out the datafile queue
             # This means all files are currently being looked at or have
             # been processed
-            if not reader_thread.isAlive() and datafile_queue.empty():
+            if not reader_thread.is_alive() and datafile_queue.empty():
                 if options.verbose:
                     myLogger.info(("All files processed ... please wait for "
                                    "processing to complete ..."))
