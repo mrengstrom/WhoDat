@@ -1,0 +1,60 @@
+#
+#                         This is the default configuration for whodat
+#         feel free to copy and change any settings that may differ for your use case
+#
+
+# core application configuration items
+core:
+  debug: False          # Enables debug logging
+  verbosity: 0          # Be verbose, level goes from 0 to 5
+  stats: False          # Print out Stats after running
+  pipelines: 2          # Number of pipelines, (default: 2)
+  shipper_threads: 1    # How many threads per pipeline to spawn to send bulk ES messages. The larger your cluster,
+                        # the more you can increase this, (default: 1)
+  fetcher_threads: 2    # How many threads to spawn to search ES. The larger your cluster, the more you can increase this (default: 2)
+
+# configuration items related to the processing of input data
+data:
+  file_extension: csv       # When scanning for CSV files only parse files with given extension (default: 'csv')
+  ignore_field_prefixes:    # list of fields (in whois data) to ignore when extracting and inserting into ElasticSearch
+    - zoneContact
+    - billingContact
+    - technicalContact
+  include: ~             # List of keys to include if updating entry (mutually exclusive to exclude)
+  exclude: ~             # List of keys to exclude if updating entry (mutually exclusive to include)
+
+# configuration items related to the elasticsearch instance being used
+elasticsearch:
+  host: localhost:9200    # Location(s) of ElasticSearch Server (e.g., foo.server.com:9200) Can take multiple endpoints (comma separated)
+
+  access:
+    user: null            # Username for ElasticSearch when Basic Auth is enabled
+    password: null        # Password for ElasticSearch when Basic Auth is enabled
+    ask_password: False   # Prompt for ElasticSearch password (!!move out to commandline!!)
+    enable_ssl: False     # flag to set to use ssl instead of basic auth
+    ssl_cert: null        # The path, on disk to the cacert of the ElasticSearch server to enable ssl/https support
+
+  connection:
+    max_retries: 100
+    retry_on_timeout: True
+    timeout: 100
+
+  sniffing:
+    disable_sniffing: True
+    sniff_on_start: False
+    sniff_on_connection_fail: False
+    sniff_timeout: 1000
+
+  index:
+    index_template: ingest\configuration\es6.data.template        # Path to the index template to use for creation of new indices
+    index_prefix: pydat         # Index prefix to use in ElasticSearch (default: pydat)
+    rollover_size: 50000000     # Set the number of documents after which point a new index should be created, defaults to
+                                # 50 milllion, note that this is fuzzy since the index count isn't continuously updated,
+                                # so should be reasonably below 2 billion per ES shard and should take your ES
+                                # configuration into consideration (default: 50M)
+
+  requests:
+    bulk_size: 1000           # Size of Bulk Elasticsearch Requests (default: 1000)
+    bulk_fetch_size: 50      # Number of documents to search for at a time (default: 50), note that this will be
+                              # multiplied by the number of indices you have, e.g., if you have 10 pydat-<number>
+                              # indices it results in a request for 500 documents
