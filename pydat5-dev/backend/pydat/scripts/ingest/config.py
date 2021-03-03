@@ -1,6 +1,6 @@
 from typing import List
 
-from pydantic import BaseModel, conint
+from pydantic import BaseModel, conint, root_validator
 
 
 # --------- pydantic configuration schema classes ----------
@@ -23,9 +23,22 @@ class DataConfiguration(BaseModel):
 class ElasticAccessConfigs(BaseModel):
     user: str = None
     password: str = None
-    ask_password: bool
-    enable_ssl: bool
+    ask_password: bool = False
+    enable_ssl: bool = False
     ssl_cert: str = None
+
+    @root_validator
+    def validate_user_pass_pairs(self, values):
+        if values.get('user') or values.get('password') or values.get('ask_password'):
+            if not (values.get('user') and (values.get('password') or values.get('ask_password'))):
+                raise ValueError('Both a user and password are required (or ask_password enabled)')
+        return values
+
+    @root_validator
+    def validate_cert_if_enabled(self, values):
+        if values.get('enable_ssl') and not values.get('ssl_cert'):
+            raise ValueError('Please provide a ssl cert location when enabling ssl')
+        return values
 
 
 class ElasticConnectionConfigs(BaseModel):
