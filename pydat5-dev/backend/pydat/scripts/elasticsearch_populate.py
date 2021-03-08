@@ -5,9 +5,7 @@ import getpass
 import argparse
 from pathlib import Path
 
-import cerberus
-
-# from ..ingest.core import PydatIngestor
+from ingest.core import PydatIngestor
 from ingest.config import Configuration, config_schema
 from ingest.util import merge_nested_dictionaries
 
@@ -15,23 +13,13 @@ from ingest.util import merge_nested_dictionaries
 def main(options):
     with Path(options.get('config')).open('r') as c:
         config_file = yaml.safe_load(c)
-
     config_file = merge_nested_dictionaries(config_file, options)
-    print(json.dumps(config_file, indent=4))
 
-    # pydantic config validation
-    config = None
     try:
         config = Configuration(**config_file)
     except Exception as e:
         print(e)
-        return
-
-    # cerberus config validation
-    config_validator = cerberus.Validator(config_schema)
-    if not config_validator.validate(config_file):
-        print(config_validator.errors)
-        return
+        sys.exit(1)
 
     if config.elasticsearch.access.ask_password:
         try:
@@ -40,8 +28,8 @@ def main(options):
             print("Unable to get password")
             sys.exit(1)
 
-    # ingestor = PydatIngestor(config)
-    # ingestor.ingest()
+    ingestor = PydatIngestor(config)
+    ingestor.ingest()
 
 
 def unflatten_argparse(args):
